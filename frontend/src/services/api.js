@@ -1,5 +1,4 @@
-const BASE_URL = 'http://localhost:8000/api';
-
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 export const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem('access_token');
   const headers = {
