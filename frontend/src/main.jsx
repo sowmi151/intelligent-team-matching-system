@@ -63,10 +63,10 @@ function Dashboard() {
     <div className="app">
       <aside className="sidebar glass">
         <div className="logo">
-          <div className="logo-mark">TF</div>
+          <div className="logo-mark">TB</div>
 
           <div>
-            <h2>TeamForge</h2>
+            <h2>TeamBloom</h2>
             <small>COLLABORATION WORKSPACE</small>
           </div>
         </div>
@@ -1155,10 +1155,10 @@ function AuthScreen({ onLogin }) {
             padding: "0 0 24px",
           }}
         >
-          <div className="logo-mark">TF</div>
+          <div className="logo-mark">TB</div>
 
           <div>
-            <h2>TeamForge</h2>
+            <h2>TeamBloom</h2>
             <small>COLLABORATION WORKSPACE</small>
           </div>
         </div>
