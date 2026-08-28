@@ -87,7 +87,7 @@ def update_profile(x: ProfileIn, u=Depends(current_user), db: Session = Depends(
 
 @app.get("/api/dashboard/stats")
 def dashboard_stats(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return {"team_matches": 24, "avg_match": 92, "active_projects": 6, "new_requests": 8}
+    return {"team_matches": 0, "avg_match": 0, "active_projects": 0, "new_requests": 0}
 
 @app.get("/api/recommendations")
 def get_recommendations(u: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -97,7 +97,7 @@ def get_recommendations(u: User = Depends(current_user), db: Session = Depends(g
     for s in students:
         p = db.query(StudentProfile).filter_by(user_id=s.id).first()
         if p:
-            score = 92 # Default demo score for UI
+            score = 0 # Replaced the 92 dummy score with 0
             results.append({"id": s.id, "name": s.name, "role": p.domain or "Student", "match_score": score, "skills": p.skills})
     return sorted(results, key=lambda k: k["match_score"], reverse=True)
 
