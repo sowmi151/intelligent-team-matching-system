@@ -187,10 +187,10 @@ function Dashboard() {
 
 function Home({ setActivePage, user }) {
   const [stats, setStats] = useState({
-    team_matches: 24,
-    avg_match: 92,
-    active_projects: 6,
-    new_requests: 8,
+    team_matches: 0,
+    avg_match: 0,
+    active_projects: 0,
+    new_requests: 0,
   });
 
   const [recommendations, setRecommendations] = useState([]);
@@ -738,18 +738,90 @@ function Messages() {
 
 function Projects() {
   const [projects, setProjects] = useState([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newProject, setNewProject] = useState({ title: "", domain: "" });
 
-  useEffect(() => {
+  // Function to grab projects from the database
+  const fetchProjects = () => {
     fetchWithAuth("/projects")
       .then((data) => setProjects(data || []))
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchProjects();
   }, []);
+
+  // Function to send a new project to the database
+  const handleCreate = async (event) => {
+    event.preventDefault();
+    try {
+      await fetchWithAuth("/projects", {
+        method: "POST",
+        body: JSON.stringify(newProject),
+      });
+      
+      // Hide the form, clear the inputs, and refresh the list!
+      setIsCreating(false);
+      setNewProject({ title: "", domain: "" });
+      fetchProjects();
+    } catch (error) {
+      alert("Failed to create project: " + error.message);
+    }
+  };
+
+  const inputStyle = {
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid #26354d",
+    background: "#0c1423",
+    color: "#f8fafc",
+    width: "100%",
+    marginBottom: "10px"
+  };
 
   return (
     <PageBox
       title="Projects"
       description="Explore and manage your college projects."
     >
+      {/* The Create Button */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+        <button 
+          className="primary-btn" 
+          onClick={() => setIsCreating(!isCreating)}
+        >
+          {isCreating ? "Cancel" : "+ Create Project"}
+        </button>
+      </div>
+
+      {/* The Creation Form (Only shows when button is clicked) */}
+      {isCreating && (
+        <form onSubmit={handleCreate} className="glass" style={{ padding: "20px", marginBottom: "20px", borderRadius: "12px" }}>
+          <h3 style={{ marginBottom: "15px" }}>Start a New Project</h3>
+          
+          <input
+            style={inputStyle}
+            placeholder="Project Title (e.g., Smart Attendance System) *"
+            required
+            value={newProject.title}
+            onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+          />
+          
+          <input
+            style={inputStyle}
+            placeholder="Domain (e.g., AI, Web Development, IoT)"
+            value={newProject.domain}
+            onChange={(e) => setNewProject({ ...newProject, domain: e.target.value })}
+          />
+          
+          <button type="submit" className="primary-btn">
+            Save Project
+          </button>
+        </form>
+      )}
+
+      {/* The Projects Grid */}
       <div className="big-page-grid">
         {projects.length > 0 ? (
           projects.map((project) => (
@@ -761,138 +833,9 @@ function Projects() {
           ))
         ) : (
           <p className="empty-state">
-            No projects found. Start building something.
+            No projects found. Click the button above to start building something!
           </p>
         )}
-      </div>
-    </PageBox>
-  );
-}
-
-/* =========================
-   NOTIFICATIONS
-========================= */
-
-function Notifications() {
-  const [notifications, setNotifications] = useState([]);
-
-  useEffect(() => {
-    fetchWithAuth("/notifications")
-      .then((data) => setNotifications(data || []))
-      .catch(console.error);
-  }, []);
-
-  return (
-    <PageBox
-      title="Notifications"
-      description="Stay updated on requests, teams, and project activity."
-    >
-      <div className="notification-list">
-        {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <div key={notification.id} className="notification">
-              <div>◌</div>
-
-              <div>
-                <b>{notification.title}</b>
-                <p>{notification.description || "Recent activity"}</p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">You have no new notifications.</p>
-        )}
-      </div>
-    </PageBox>
-  );
-}
-
-/* =========================
-   SETTINGS
-========================= */
-
-function Settings() {
-  const [settings, setSettings] = useState({
-    notifications_enabled: true,
-    ai_recommendations_enabled: true,
-  });
-
-  useEffect(() => {
-    fetchWithAuth("/settings")
-      .then((data) => setSettings(data))
-      .catch(console.error);
-  }, []);
-
-  const toggleSetting = async (key) => {
-    const updatedSettings = {
-      ...settings,
-      [key]: !settings[key],
-    };
-
-    setSettings(updatedSettings);
-
-    try {
-      await fetchWithAuth("/settings", {
-        method: "PUT",
-        body: JSON.stringify({ [key]: updatedSettings[key] }),
-      });
-    } catch (error) {
-      console.error("Failed to save setting:", error);
-      setSettings(settings);
-      alert("Failed to save the setting. Please try again.");
-    }
-  };
-
-  return (
-    <PageBox
-      title="Settings"
-      description="Configure your workspace preferences."
-    >
-      <div className="settings-list">
-        <div className="setting">
-          <div>
-            <h3>Dark mode</h3>
-            <p>Dark interface is currently enabled.</p>
-          </div>
-
-          <button className="toggle on" type="button">
-            ON
-          </button>
-        </div>
-
-        <div className="setting">
-          <div>
-            <h3>Notifications</h3>
-            <p>Receive updates about teams and projects.</p>
-          </div>
-
-          <button
-            className={`toggle ${
-              settings.notifications_enabled ? "on" : ""
-            }`}
-            type="button"
-            onClick={() => toggleSetting("notifications_enabled")}
-          >
-            {settings.notifications_enabled ? "ON" : "OFF"}
-          </button>
-        </div>
-
-        <div className="setting">
-          <div>
-            <h3>AI recommendations</h3>
-            <p>Get personalized collaborator recommendations.</p>
-          </div>
-
-          <button
-            className={`toggle ${
-              settings.ai_recommendations_enabled ? "on" : ""
-            }`}
-            type="button"
-            onClick={() => toggleSetting("ai_recommendations_enabled")}
-          >
-            {settings.ai_recommendations_enabled ? "ON" : "OFF"}
-          </button>
-        </div>
       </div>
     </PageBox>
   );
