@@ -842,6 +842,118 @@ function Projects() {
 }
 
 /* =========================
+   NOTIFICATIONS (NEW)
+========================= */
+
+function Notifications() {
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    fetchWithAuth("/notifications")
+      .then((data) => setNotifications(data || []))
+      .catch(console.error);
+  }, []);
+
+  return (
+    <PageBox
+      title="Notifications"
+      description="Stay updated on team requests and project activity."
+    >
+      <div className="notification-list">
+        {notifications.length > 0 ? (
+          notifications.map((notification) => (
+            <div key={notification.id} className="notification">
+              <div>
+                <h3>{notification.title}</h3>
+                <p>{notification.description}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No notifications yet.</p>
+        )}
+      </div>
+    </PageBox>
+  );
+}
+
+/* =========================
+   SETTINGS (NEW)
+========================= */
+
+function Settings() {
+  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [aiRecs, setAiRecs] = useState(true);
+
+  useEffect(() => {
+    fetchWithAuth("/settings")
+      .then(data => {
+        setDarkMode(data.dark_mode);
+        setNotifications(data.notifications_enabled);
+        setAiRecs(data.ai_recommendations_enabled);
+      })
+      .catch(console.error);
+  }, []);
+
+  const toggleSetting = async (field, value) => {
+    setDarkMode(field === "dark_mode" ? value : darkMode);
+    setNotifications(field === "notifications_enabled" ? value : notifications);
+    setAiRecs(field === "ai_recommendations_enabled" ? value : aiRecs);
+
+    await fetchWithAuth("/settings", {
+      method: "PUT",
+      body: JSON.stringify({ [field]: value }),
+    }).catch(console.error);
+  };
+
+  return (
+    <PageBox title="Settings" description="Manage your preferences.">
+      <div className="settings-list">
+        <div className="setting">
+          <div>
+            <h3>Dark mode</h3>
+            <p>Enable dark theme for the interface.</p>
+          </div>
+          <button
+            className={`toggle ${darkMode ? "on" : ""}`}
+            onClick={() => toggleSetting("dark_mode", !darkMode)}
+          >
+            {darkMode ? "ON" : "OFF"}
+          </button>
+        </div>
+
+        <div className="setting">
+          <div>
+            <h3>Notifications</h3>
+            <p>Receive alerts about new matches and requests.</p>
+          </div>
+          <button
+            className={`toggle ${notifications ? "on" : ""}`}
+            onClick={() => toggleSetting("notifications_enabled", !notifications)}
+          >
+            {notifications ? "ON" : "OFF"}
+          </button>
+        </div>
+
+        <div className="setting">
+          <div>
+            <h3>AI recommendations</h3>
+            <p>Use AI to suggest compatible teammates.</p>
+          </div>
+          <button
+            className={`toggle ${aiRecs ? "on" : ""}`}
+            onClick={() => toggleSetting("ai_recommendations_enabled", !aiRecs)}
+          >
+            {aiRecs ? "ON" : "OFF"}
+          </button>
+        </div>
+      </div>
+    </PageBox>
+  );
+}
+
+/* =========================
    EDIT PROFILE
 ========================= */
 
