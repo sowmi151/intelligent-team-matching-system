@@ -2,13 +2,36 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from .database import Base, engine, get_db
+from .database import Base, engine, get_db, SessionLocal
 from .models import *
 from .schemas import *
 from .auth import *
 from .matching_service import match, sim
 
 Base.metadata.create_all(bind=engine)
+# Auto-seed demo user
+def seed_demo_user():
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == "demo@student.com").first():
+            demo = User(
+                name="Demo Student",
+                email="demo@student.com",
+                password_hash=hash_password("Demo@123"),
+                college="SRM Institute of Science and Technology",
+                department="Computer Science",
+                year="3rd",
+                section="D"
+            )
+            db.add(demo)
+            db.commit()
+            print("✅ Demo user created.")
+        else:
+            print("✅ Demo user already exists.")
+    finally:
+        db.close()
+
+seed_demo_user()
 app = FastAPI(title="TeamBloom API")
 
 app.add_middleware(
