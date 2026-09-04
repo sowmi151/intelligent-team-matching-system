@@ -92,9 +92,9 @@ function Dashboard() {
   { name: "Notifications", icon: "◌" },
 ];
 
-  const handleUserUpdate = (updatedUser) => {
-    setUser(updatedUser);
-  };
+const handleViewProfile = (conn) => {
+  alert(`Viewing profile of ${conn.name}\nEmail: ${conn.email}`);
+};
 
 const renderPage = () => {
   switch (activePage) {
@@ -796,58 +796,6 @@ function Messages({ user, initialChatUser }) {
   );
 }
 
-function ConnectionsList({ onViewProfile }) {
-  const [connections, setConnections] = useState([]);
-
-  useEffect(() => {
-    fetchConnections();
-  }, []);
-
-  const fetchConnections = async () => {
-    const data = await fetchWithAuth("/connections");
-    setConnections(data || []);
-  };
-
-  const handleDisconnect = async (connId) => {
-    if (!confirm("Are you sure you want to disconnect?")) return;
-    try {
-      await fetchWithAuth(`/connections/${connId}`, { method: "DELETE" });
-      setConnections((prev) => prev.filter((conn) => conn.id !== connId));
-      alert("Disconnected successfully.");
-    } catch (error) {
-      alert("Failed to disconnect.");
-      console.error(error);
-    }
-  };
-
-  return (
-    <PageBox title="My Connections" description="Your accepted connections.">
-      <div className="message-list">
-        {connections.length > 0 ? (
-          connections.map((conn) => (
-            <div key={conn.id} className="message-item">
-              <div className="message-avatar">{getInitials(conn.name || "S")}</div>
-              <div>
-                <h3>{conn.name}</h3>
-                <p>{conn.email}</p>
-              </div>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button className="secondary-btn" onClick={() => onViewProfile(conn)}>
-                  View Profile
-                </button>
-                <button className="primary-btn" style={{ background: "red", borderColor: "red" }} onClick={() => handleDisconnect(conn.id)}>
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">No connections yet. Accept requests to build your network.</p>
-        )}
-      </div>
-    </PageBox>
-  );
-}
 /* =========================
    PROJECTS
 ========================= */
@@ -1747,6 +1695,63 @@ function App() {
   }
 
   return <Dashboard />;
+}
+
+function ConnectionsList({ onViewProfile }) {
+  const [connections, setConnections] = useState([]);
+
+  useEffect(() => {
+    fetchConnections();
+  }, []);
+
+  const fetchConnections = async () => {
+    try {
+      const data = await fetchWithAuth("/connections");
+      setConnections(data || []);
+    } catch (error) {
+      console.error("Failed to fetch connections:", error);
+    }
+  };
+
+  const handleDisconnect = async (connId) => {
+    if (!confirm("Are you sure you want to disconnect?")) return;
+    try {
+      await fetchWithAuth(`/connections/${connId}`, { method: "DELETE" });
+      setConnections((prev) => prev.filter((conn) => conn.id !== connId));
+      alert("Disconnected successfully.");
+    } catch (error) {
+      alert("Failed to disconnect.");
+      console.error(error);
+    }
+  };
+
+  return (
+    <PageBox title="My Connections" description="Your accepted connections.">
+      <div className="message-list">
+        {connections.length > 0 ? (
+          connections.map((conn) => (
+            <div key={conn.id} className="message-item">
+              <div className="message-avatar">{getInitials(conn.name || "S")}</div>
+              <div>
+                <h3>{conn.name}</h3>
+                <p>{conn.email}</p>
+              </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button className="secondary-btn" onClick={() => onViewProfile(conn)}>
+                  View Profile
+                </button>
+                <button className="primary-btn" style={{ background: "red", borderColor: "red" }} onClick={() => handleDisconnect(conn.id)}>
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No connections yet. Accept requests to build your network.</p>
+        )}
+      </div>
+    </PageBox>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
