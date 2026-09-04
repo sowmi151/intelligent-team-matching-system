@@ -1010,8 +1010,7 @@ function Settings() {
    EDIT PROFILE (MODIFIED)
 ========================= */
 
-function EditProfile({ user, setActivePage }) {
-  const [profile, setProfile] = useState({
+function EditProfile({ user, setActivePage, onUserUpdate }) {  const [profile, setProfile] = useState({
     name: "",
     college: "",
     section: "",
@@ -1048,24 +1047,26 @@ function EditProfile({ user, setActivePage }) {
     }));
   };
 
-  const handleSave = async (event) => {
+   const handleSave = async (event) => {
     event.preventDefault();
 
     try {
-      await fetchWithAuth("/profile", {
+      // The backend returns the updated user data
+      const updatedData = await fetchWithAuth("/profile", {
         method: "PUT",
         body: JSON.stringify(profile),
       });
 
+      // Update the Dashboard's user state immediately
+      if (onUserUpdate) onUserUpdate(updatedData);
+
       alert("Profile updated successfully.");
-      // ✅ Instead of reloading the page, navigate back to Dashboard
       setActivePage("Dashboard");
     } catch (error) {
       alert(`Failed to update profile: ${error.message}`);
       console.error(error);
     }
   };
-
   const inputStyle = {
     padding: "12px",
     borderRadius: "8px",
