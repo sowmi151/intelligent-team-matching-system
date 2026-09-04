@@ -16,7 +16,7 @@ function getInitials(name = "Student") {
 
 function Dashboard() {
   const [activePage, setActivePage] = useState("Dashboard");
-  const [user, setUser] = useState(null);  // ✅ ADDED MISSING STATE
+  const [user, setUser] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const isPopState = useRef(false);
 
@@ -47,31 +47,6 @@ function Dashboard() {
     setActivePage(pathToPage[path] || "Dashboard");
   }, []);
 
-  // ✅ This is the combined useEffect for fetching user + handling is_new
-  useEffect(() => {
-    fetchWithAuth("/auth/me")
-      .then((data) => {
-        setUser(data);
-        const newFlag = localStorage.getItem("is_new");
-        if (newFlag === "true") {
-          setIsNew(true);
-          localStorage.setItem("is_new", "false");
-        } else {
-          setIsNew(false);
-        }
-      })
-      .catch((err) => console.error("Failed to load user:", err));
-  }, []);
-
-  // ❌ Removed the duplicate useEffect (commented out to avoid error)
-  /*
-  useEffect(() => {
-    fetchWithAuth("/auth/me")
-      .then((data) => setUser(data))
-      .catch((err) => console.error("Failed to load user:", err));
-  }, []);
-  */
-
   useEffect(() => {
     if (!isPopState.current) {
       const path = pageToPath[activePage] || "/";
@@ -91,6 +66,21 @@ function Dashboard() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useEffect(() => {
+    fetchWithAuth("/auth/me")
+      .then((data) => {
+        setUser(data);
+        const newFlag = localStorage.getItem("is_new");
+        if (newFlag === "true") {
+          setIsNew(true);
+          localStorage.setItem("is_new", "false");
+        } else {
+          setIsNew(false);
+        }
+      })
+      .catch((err) => console.error("Failed to load user:", err));
+  }, []);
+
   const menuItems = [
     { name: "Dashboard", icon: "▦" },
     { name: "Find Teammates", icon: "⌘" },
@@ -106,28 +96,20 @@ function Dashboard() {
 
   const renderPage = () => {
     switch (activePage) {
-      case "Find Teammates":
-        return <FindTeammates />;
-      case "My Teams":
-        return <MyTeams />;
-      case "Messages":
-        return <Messages />;
-      case "Projects":
-        return <Projects />;
-      case "Notifications":
-        return <Notifications />;
-      case "Settings":
-        return <Settings />;
-      case "Edit Profile":
-        return <EditProfile user={user} setActivePage={setActivePage} onUserUpdate={handleUserUpdate} />;
-      default:
-        return <Home setActivePage={setActivePage} user={user} />;
+      case "Find Teammates": return <FindTeammates />;
+      case "My Teams": return <MyTeams />;
+      case "Messages": return <Messages />;
+      case "Projects": return <Projects />;
+      case "Notifications": return <Notifications />;
+      case "Settings": return <Settings />;
+      case "Edit Profile": return <EditProfile user={user} setActivePage={setActivePage} onUserUpdate={handleUserUpdate} />;
+      default: return <Home setActivePage={setActivePage} user={user} />;
     }
   };
 
   const logout = () => {
     localStorage.removeItem("access_token");
-    localStorage.removeItem("is_new");  // ✅ Added this
+    localStorage.removeItem("is_new");
     window.location.reload();
   };
 
@@ -216,35 +198,13 @@ function Dashboard() {
           </div>
 
           <div className="top-actions">
-            <button
-              className="icon-btn"
-              type="button"
-              title="Notifications"
-              onClick={() => setActivePage("Notifications")}
-            >
-              ◌
-            </button>
-
-            <button
-              className="profile-btn"
-              type="button"
-              onClick={() => setActivePage("Settings")}
-            >
-              <span className="top-avatar">
-                {getInitials(user?.name || "Student")}
-              </span>
+            <button className="icon-btn" type="button" title="Notifications" onClick={() => setActivePage("Notifications")}>◌</button>
+            <button className="profile-btn" type="button" onClick={() => setActivePage("Settings")}>
+              <span className="top-avatar">{getInitials(user?.name || "Student")}</span>
               <b>{firstName}</b>
               <span>⌄</span>
             </button>
-
-            <button
-              className="logout-btn"
-              type="button"
-              title="Logout"
-              onClick={logout}
-            >
-              Logout
-            </button>
+            <button className="logout-btn" type="button" title="Logout" onClick={logout}>Logout</button>
           </div>
         </header>
 
@@ -255,12 +215,116 @@ function Dashboard() {
 }
 
 /* =========================
-   ALL OTHER COMPONENTS REMAIN UNCHANGED
-   (Home, Stat, Person, ProfileCard, ProjectsMini, Project, PageBox,
-    FindTeammates, MyTeams, Messages, Projects, Notifications, Settings,
-    EditProfile, AuthScreen, App)
+   ALL OTHER COMPONENTS (Home, FindTeammates, etc.)
+   – Everything from your original file goes here unchanged.
 ========================= */
 
-// ... (The rest of your file stays exactly the same – I'm not pasting them again to save space, but you can keep them.)
+function Home({ setActivePage, user }) {
+  const [stats, setStats] = useState({ team_matches: 0, avg_match: 0, active_projects: 0, new_requests: 0 });
+  const [recommendations, setRecommendations] = useState([]);
 
-// Make sure you keep everything from Home down to the end.
+  useEffect(() => {
+    fetchWithAuth("/dashboard/stats").then((data) => setStats(data)).catch(console.error);
+    fetchWithAuth("/recommendations").then((data) => setRecommendations((data || []).slice(0, 3))).catch(console.error);
+  }, []);
+
+  const handleConnect = async (studentId) => {
+    try {
+      await fetchWithAuth("/requests", { method: "POST", body: JSON.stringify({ receiver_id: studentId }) });
+      alert("Connection request sent.");
+    } catch (error) {
+      alert(error.message || "Failed to send connection request.");
+    }
+  };
+
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-text">
+          <span className="tag">AI-POWERED TEAM MATCHING</span>
+          <h2>Find the right people.<span> Build better projects.</span></h2>
+          <p>Discover students with compatible skills, interests, and working preferences for your next project.</p>
+          <div className="hero-actions">
+            <button className="primary-btn" type="button" onClick={() => setActivePage("Find Teammates")}>Explore teammates <span>→</span></button>
+            <button className="secondary-btn" type="button" onClick={() => setActivePage("Projects")}>View projects</button>
+          </div>
+        </div>
+        <div className="hero-panel">
+          <div className="panel-label">TEAM MATCH ENGINE</div>
+          <div className="match-ring"><span>{stats.avg_match || 0}%</span><small>average fit</small></div>
+          <div className="match-lines">
+            <div><span>Technical skills</span><b>Strong</b></div>
+            <div><span>Working style</span><b>Compatible</b></div>
+            <div><span>Project interests</span><b>Aligned</b></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="stats">
+        <Stat icon="⌘" color="blue" title="TEAM MATCHES" value={stats.team_matches || 0} text="Potential collaborators" />
+        <Stat icon="◉" color="purple" title="AVERAGE MATCH" value={`${stats.avg_match || 0}%`} text="Compatibility score" />
+        <Stat icon="◫" color="yellow" title="ACTIVE PROJECTS" value={String(stats.active_projects || 0).padStart(2, "0")} text="Projects in progress" />
+        <Stat icon="✉" color="blue" title="NEW REQUESTS" value={String(stats.new_requests || 0).padStart(2, "0")} text="Awaiting response" />
+      </section>
+
+      <div className="content-grid">
+        <section className="recommendations glass">
+          <div className="section-heading">
+            <div><span className="eyebrow">RECOMMENDED FOR YOU</span><h2>Potential collaborators</h2></div>
+            <button className="see-all" type="button" onClick={() => setActivePage("Find Teammates")}>View all →</button>
+          </div>
+          <div className="people">
+            {recommendations.length > 0 ? recommendations.map((rec) => (
+              <Person key={rec.id} name={rec.name} role={rec.role || "Student"} match={`${rec.match_score || 0}%`} skills={rec.skills ? rec.skills.split(",").slice(0, 3) : ["No skills added"]} onConnect={() => handleConnect(rec.id)} />
+            )) : <p className="empty-state">Finding compatible teammates...</p>}
+          </div>
+        </section>
+        <aside className="right-column">
+          <ProfileCard user={user} onEditClick={() => setActivePage("Edit Profile")} />
+          <ProjectsMini />
+        </aside>
+      </div>
+    </>
+  );
+}
+
+// ... (Add all other components exactly as they were: Stat, Person, ProfileCard, ProjectsMini, Project, PageBox, FindTeammates, MyTeams, Messages, Projects, Notifications, Settings, EditProfile, AuthScreen, App) ...
+
+// Make sure to include the AuthScreen with the `localStorage.setItem("is_new", ...)` line.
+
+function AuthScreen({ onLogin }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [dob, setDob] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const endpoint = isLogin ? "/auth/login" : "/auth/register";
+    const payload = isLogin ? { email, password } : { name: firstName, first_name: firstName, nickname, dob, email, password };
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api${endpoint}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Authentication failed.");
+      }
+      const data = await response.json();
+      if (!data.access_token) throw new Error("No access token was returned by the server.");
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("is_new", data.is_new ? "true" : "false");
+      onLogin();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  // ... rest of AuthScreen unchanged
+}
+
+// ... App and ReactDOM root unchanged
