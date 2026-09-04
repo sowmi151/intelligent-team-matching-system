@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { fetchWithAuth } from "./services/api";
@@ -17,6 +17,7 @@ function getInitials(name = "Student") {
 function Dashboard() {
   const [activePage, setActivePage] = useState("Dashboard");
   const [user, setUser] = useState(null);
+  const isPopState = useRef(false); // flag to skip pushState on browser back/forward
 
   // Map page names to URL paths
   const pageToPath = {
@@ -48,16 +49,21 @@ function Dashboard() {
     setActivePage(pathToPage[path] || "Dashboard");
   }, []);
 
-  // When activePage changes, update the URL (without reloading)
+  // When activePage changes, update the URL (but skip if it's from popstate)
   useEffect(() => {
-    const path = pageToPath[activePage] || "/";
-    window.history.pushState({}, "", path);
+    if (!isPopState.current) {
+      const path = pageToPath[activePage] || "/";
+      window.history.pushState({}, "", path);
+    } else {
+      isPopState.current = false;
+    }
   }, [activePage]);
 
   // Listen to browser back/forward and update activePage accordingly
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
+      isPopState.current = true; // tell the effect to skip pushState
       setActivePage(pathToPage[path] || "Dashboard");
     };
     window.addEventListener("popstate", handlePopState);
