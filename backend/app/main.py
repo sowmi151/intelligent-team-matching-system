@@ -142,7 +142,16 @@ def update_profile(x: ProfileIn, u=Depends(current_user), db: Session = Depends(
 
 @app.get("/api/dashboard/stats")
 def dashboard_stats(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return {"team_matches": 0, "avg_match": 0, "active_projects": 0, "new_requests": 0}
+    incoming_requests = db.query(TeamRequest).filter(
+        TeamRequest.receiver_id == u.id,
+        TeamRequest.status == "Pending"
+    ).count()
+    return {
+        "team_matches": 0,
+        "avg_match": 0,
+        "active_projects": db.query(Project).filter(Project.owner_id == u.id).count(),
+        "new_requests": incoming_requests
+    }
 
 @app.get("/api/recommendations")
 def get_recommendations(u: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -180,6 +189,25 @@ def request(x: RequestIn, u=Depends(current_user), db: Session = Depends(get_db)
     db.add(r)
     db.commit()
     return {"message": "Request sent"}
+@app.get("/api/requests/incoming")
+def get_incoming_requests(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    requests = db.query(TeamRequest).filter(
+        TeamRequest.receiver_id == u.id,
+        TeamRequest.status == "Pending"
+    ).all()
+    result = []
+    for r in requests:
+        sender = db.query(User).filter(User.id == r.sender_id).first()
+        if sender:
+            result.append({
+                "id": r.id,
+                "sender_id": r.sender_id,
+                "sender_name": sender.name,
+                "sender_email": sender.email,
+                "status": r.status,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            })
+    return result
 
 @app.get("/api/messages")
 def get_messages(u: User = Depends(current_user), db: Session = Depends(get_db)):

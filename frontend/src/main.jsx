@@ -903,13 +903,19 @@ function Projects() {
 ========================= */
 
 function Notifications() {
-  const [notifications, setNotifications] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
-    fetchWithAuth("/notifications")
-      .then((data) => setNotifications(data || []))
+    fetchWithAuth("/requests/incoming")
+      .then((data) => setRequests(data || []))
       .catch(console.error);
   }, []);
+
+  const acceptRequest = async (requestId) => {
+    // Implement accept logic (you'll need a PUT endpoint or update status)
+    // For now just alert
+    alert(`Request ${requestId} accepted`);
+  };
 
   return (
     <PageBox
@@ -917,17 +923,19 @@ function Notifications() {
       description="Stay updated on team requests and project activity."
     >
       <div className="notification-list">
-        {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <div key={notification.id} className="notification">
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <div key={request.id} className="notification">
               <div>
-                <h3>{notification.title}</h3>
-                <p>{notification.description}</p>
+                <h3>{request.sender_name} wants to connect</h3>
+                <p>{request.sender_email}</p>
+                <button className="primary-btn" onClick={() => acceptRequest(request.id)}>Accept</button>
+                <button className="secondary-btn" onClick={() => alert("Declined")}>Decline</button>
               </div>
             </div>
           ))
         ) : (
-          <p className="empty-state">No notifications yet.</p>
+          <p className="empty-state">No new requests.</p>
         )}
       </div>
     </PageBox>
