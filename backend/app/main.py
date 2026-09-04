@@ -157,11 +157,23 @@ def dashboard_stats(u: User = Depends(current_user), db: Session = Depends(get_d
 def get_recommendations(u: User = Depends(current_user), db: Session = Depends(get_db)):
     my_prof = db.query(StudentProfile).filter_by(user_id=u.id).first()
     students = db.query(User).filter(User.id != u.id).all()
+    
+    # Get IDs of users who already have a request (pending or accepted) with current user
+    existing_request_ids = set()
+    requests = db.query(TeamRequest).filter(
+        or_(TeamRequest.sender_id == u.id, TeamRequest.receiver_id == u.id)
+    ).all()
+    for r in requests:
+        other_id = r.receiver_id if r.sender_id == u.id else r.sender_id
+        existing_request_ids.add(other_id)
+    
     results = []
     for s in students:
+        if s.id in existing_request_ids:
+            continue
         p = db.query(StudentProfile).filter_by(user_id=s.id).first()
         if p:
-            score = 0 # Replaced the 92 dummy score with 0
+            score = 0 # dummy score
             results.append({"id": s.id, "name": s.name, "role": p.domain or "Student", "match_score": score, "skills": p.skills})
     return sorted(results, key=lambda k: k["match_score"], reverse=True)
 

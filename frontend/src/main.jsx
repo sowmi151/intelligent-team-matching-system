@@ -17,6 +17,7 @@ function getInitials(name = "Student") {
 function Dashboard() {
   const [activePage, setActivePage] = useState("Dashboard");
   const [user, setUser] = useState(null);
+  const [selectedConnection, setSelectedConnection] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const isPopState = useRef(false);
 
@@ -82,45 +83,51 @@ function Dashboard() {
   }, []);
 
   const menuItems = [
-    { name: "Dashboard", icon: "▦" },
-    { name: "Find Teammates", icon: "⌘" },
-    { name: "My Teams", icon: "◉" },
-    { name: "Messages", icon: "✉" },
-    { name: "Projects", icon: "◫" },
-    { name: "Notifications", icon: "◌" },
-  ];
+  { name: "Dashboard", icon: "▦" },
+  { name: "Find Teammates", icon: "⌘" },
+  { name: "My Connections", icon: "✦" },
+  { name: "Messages", icon: "✉" },
+  { name: "My Teams", icon: "◉" },
+  { name: "Projects", icon: "◫" },
+  { name: "Notifications", icon: "◌" },
+];
 
   const handleUserUpdate = (updatedUser) => {
     setUser(updatedUser);
   };
 
-  const renderPage = () => {
-    switch (activePage) {
-      case "Find Teammates":
-        return <FindTeammates />;
-      case "My Teams":
-        return <MyTeams />;
-      case "Messages":
-         return <Messages user={user} />;
-      case "Notifications":
-         return <Notifications user={user} />;
-      case "Projects":
-        return <Projects />;
-      case "Settings":
-        return <Settings />;
-      case "Edit Profile":
-        return <EditProfile user={user} setActivePage={setActivePage} onUserUpdate={handleUserUpdate} />;
-      default:
-        return <Home setActivePage={setActivePage} user={user} />;
-    }
-  };
+const renderPage = () => {
+  switch (activePage) {
+    case "Find Teammates":
+      return <FindTeammates />;
+    case "My Connections":
+      return <ConnectionsList onMessageClick={(conn) => {
+        setSelectedConnection(conn);
+        setActivePage("Messages");
+      }} />;
+    case "Messages":
+      return <Messages user={user} initialChatUser={selectedConnection} />;
+    case "My Teams":
+      return <MyTeams />;
+    case "Projects":
+      return <Projects />;
+    case "Notifications":
+      return <Notifications user={user} />;
+    case "Settings":
+      return <Settings />;
+    case "Edit Profile":
+      return <EditProfile user={user} setActivePage={setActivePage} onUserUpdate={handleUserUpdate} />;
+    default:
+      return <Home setActivePage={setActivePage} user={user} />;
+  }
+};
 
   const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("is_new");
-    window.location.reload();
-  };
-
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("is_new");
+  setSelectedConnection(null);   // add this
+  window.location.reload();
+};
   const firstName = user?.name?.split(" ")[0] || "Student";
 
   return (
@@ -756,10 +763,9 @@ function MyTeams() {
 /* =========================
    MESSAGES
 ========================= */
-
-function Messages({ user }) {
+function Messages({ user, initialChatUser }) {
   const [connections, setConnections] = useState([]);
-  const [activeChat, setActiveChat] = useState(null);
+  const [activeChat, setActiveChat] = useState(initialChatUser || null);
 
   useEffect(() => {
     fetchWithAuth("/connections")
@@ -793,6 +799,38 @@ function Messages({ user }) {
   );
 }
 
+function ConnectionsList({ onMessageClick }) {
+  const [connections, setConnections] = useState([]);
+
+  useEffect(() => {
+    fetchWithAuth("/connections")
+      .then((data) => setConnections(data || []))
+      .catch(console.error);
+  }, []);
+
+  return (
+    <PageBox title="My Connections" description="Your accepted connections.">
+      <div className="message-list">
+        {connections.length > 0 ? (
+          connections.map((conn) => (
+            <div key={conn.id} className="message-item">
+              <div className="message-avatar">{getInitials(conn.name || "S")}</div>
+              <div>
+                <h3>{conn.name}</h3>
+                <p>{conn.email}</p>
+              </div>
+              <button className="primary-btn" onClick={() => onMessageClick(conn)}>
+                Message
+              </button>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No connections yet. Accept requests to build your network.</p>
+        )}
+      </div>
+    </PageBox>
+  );
+}
 /* =========================
    PROJECTS
 ========================= */
@@ -923,8 +961,6 @@ function Notifications({ user }) {
   };
 
   const handleMessage = (sender) => {
-    // sender is the object we have in the request (sender_id, sender_name, sender_email)
-    // We need to create a connection-like object for ChatBox
     setShowChat({ id: sender.sender_id, name: sender.sender_name, email: sender.sender_email });
   };
 
@@ -945,7 +981,6 @@ function Notifications({ user }) {
                       className="primary-btn"
                       onClick={() => {
                         handleAccept(request.id);
-                        // After accept, you can open chat immediately
                         handleMessage(request);
                       }}
                     >
