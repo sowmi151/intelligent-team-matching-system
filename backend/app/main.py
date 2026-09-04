@@ -208,6 +208,53 @@ def get_incoming_requests(u: User = Depends(current_user), db: Session = Depends
                 "created_at": r.created_at.isoformat() if r.created_at else None
             })
     return result
+@app.put("/api/requests/{request_id}/accept")
+def accept_request(request_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    r = db.query(TeamRequest).filter(TeamRequest.id == request_id, TeamRequest.receiver_id == u.id).first()
+    if not r:
+        raise HTTPException(404, "Request not found")
+    r.status = "Accepted"
+    db.commit()
+    return {"message": "Request accepted"}
+
+@app.put("/api/requests/{request_id}/decline")
+def decline_request(request_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    r = db.query(TeamRequest).filter(TeamRequest.id == request_id, TeamRequest.receiver_id == u.id).first()
+    if not r:
+        raise HTTPException(404, "Request not found")
+    r.status = "Declined"
+    db.commit()
+    return {"message": "Request declined"}
+@app.get("/api/connections")
+def get_connections(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    requests = db.query(TeamRequest).filter(
+        TeamRequest.status == "Accepted",
+        or_(TeamRequest.sender_id == u.id, TeamRequest.receiver_id == u.id)
+    ).all()
+    result = []
+    seen = set()
+    for r in requests:
+        other_id = r.receiver_id if r.sender_id == u.id else r.sender_id
+        if other_id not in seen:
+            other = db.query(User).filter(User.id == other_id).first()
+            if other:
+                result.append({"id": other.id, "name": other.name, "email": other.email})
+                seen.add(other_id)
+    return result
+@app.get("/api/messages/{other_user_id}")
+def get_messages_with_user(other_user_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    messages = db.query(Message).filter(
+        ((Message.sender_id == u.id) & (Message.receiver_id == other_user_id)) |
+        ((Message.sender_id == other_user_id) & (Message.receiver_id == u.id))
+    ).order_by(Message.created_at).all()
+    return [{"id": m.id, "sender_id": m.sender_id, "receiver_id": m.receiver_id, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else None} for m in messages]
+
+@app.post("/api/messages")
+def send_message(x: MessageIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    msg = Message(sender_id=u.id, receiver_id=x.receiver_id, content=x.content)
+    db.add(msg)
+    db.commit()
+    return {"message": "Message sent"}
 
 @app.get("/api/messages")
 def get_messages(u: User = Depends(current_user), db: Session = Depends(get_db)):

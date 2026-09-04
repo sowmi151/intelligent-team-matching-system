@@ -758,39 +758,37 @@ function MyTeams() {
 ========================= */
 
 function Messages() {
-  const [messages, setMessages] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
 
   useEffect(() => {
-    fetchWithAuth("/messages")
-      .then((data) => setMessages(data || []))
+    fetchWithAuth("/connections")
+      .then((data) => setConnections(data || []))
       .catch(console.error);
   }, []);
 
   return (
-    <PageBox
-      title="Messages"
-      description="Communicate with teammates and project collaborators."
-    >
-      <div className="message-list">
-        {messages.length > 0 ? (
-          messages.map((message) => (
-            <div key={message.id} className="message-item">
-              <div className="message-avatar">
-                {getInitials(message.sender_name || "Student")}
+    <PageBox title="Messages" description="Communicate with teammates and project collaborators.">
+      {activeChat ? (
+        <ChatBox user={activeChat} onClose={() => setActiveChat(null)} />
+      ) : (
+        <div className="message-list">
+          {connections.length > 0 ? (
+            connections.map((conn) => (
+              <div key={conn.id} className="message-item">
+                <div className="message-avatar">{getInitials(conn.name || "S")}</div>
+                <div>
+                  <h3>{conn.name}</h3>
+                  <p>{conn.email}</p>
+                </div>
+                <button className="primary-btn" onClick={() => setActiveChat(conn)}>Message</button>
               </div>
-
-              <div>
-                <h3>{message.sender_name || "Student"}</h3>
-                <p>{message.content}</p>
-              </div>
-
-              <span>{message.created_at || "Recent"}</span>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">Your inbox is empty.</p>
-        )}
-      </div>
+            ))
+          ) : (
+            <p className="empty-state">No connections yet. Accept requests to start chatting.</p>
+          )}
+        </div>
+      )}
     </PageBox>
   );
 }
@@ -904,6 +902,7 @@ function Projects() {
 
 function Notifications() {
   const [requests, setRequests] = useState([]);
+  const [showChat, setShowChat] = useState(null); // stores user object for chat
 
   useEffect(() => {
     fetchWithAuth("/requests/incoming")
@@ -911,37 +910,50 @@ function Notifications() {
       .catch(console.error);
   }, []);
 
-  const acceptRequest = async (requestId) => {
-    // Implement accept logic (you'll need a PUT endpoint or update status)
-    // For now just alert
-    alert(`Request ${requestId} accepted`);
+  const handleAccept = async (requestId) => {
+    await fetchWithAuth(`/requests/${requestId}/accept`, { method: "PUT" });
+    alert("Request accepted");
+    // Remove from list
+    setRequests((prev) => prev.filter((r) => r.id !== requestId));
+  };
+
+  const handleDecline = async (requestId) => {
+    await fetchWithAuth(`/requests/${requestId}/decline`, { method: "PUT" });
+    alert("Request declined");
+    setRequests((prev) => prev.filter((r) => r.id !== requestId));
+  };
+
+  const handleMessage = (user) => {
+    setShowChat(user);
   };
 
   return (
-    <PageBox
-      title="Notifications"
-      description="Stay updated on team requests and project activity."
-    >
-      <div className="notification-list">
-        {requests.length > 0 ? (
-          requests.map((request) => (
-            <div key={request.id} className="notification">
-              <div>
-                <h3>{request.sender_name} wants to connect</h3>
-                <p>{request.sender_email}</p>
-                <button className="primary-btn" onClick={() => acceptRequest(request.id)}>Accept</button>
-                <button className="secondary-btn" onClick={() => alert("Declined")}>Decline</button>
+    <PageBox title="Notifications" description="Stay updated on team requests and project activity.">
+      {showChat ? (
+        <ChatBox user={showChat} onClose={() => setShowChat(null)} />
+      ) : (
+        <div className="notification-list">
+          {requests.length > 0 ? (
+            requests.map((request) => (
+              <div key={request.id} className="notification">
+                <div>
+                  <h3>{request.sender_name} wants to connect</h3>
+                  <p>{request.sender_email}</p>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button className="primary-btn" onClick={() => handleAccept(request.id)}>Accept</button>
+                    <button className="secondary-btn" onClick={() => handleDecline(request.id)}>Decline</button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">No new requests.</p>
-        )}
-      </div>
+            ))
+          ) : (
+            <p className="empty-state">No new requests.</p>
+          )}
+        </div>
+      )}
     </PageBox>
   );
 }
-
 /* =========================
    SETTINGS
 ========================= */
@@ -1547,6 +1559,59 @@ function AuthScreen({ onLogin }) {
             ? "Need an account? Create one"
             : "Already have an account? Sign in"}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function ChatBox({ user, onClose }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+
+  useEffect(() => {
+    fetchWithAuth(`/messages/${user.id}`)
+      .then((data) => setMessages(data || []))
+      .catch(console.error);
+  }, [user.id]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    await fetchWithAuth("/messages", {
+      method: "POST",
+      body: JSON.stringify({ receiver_id: user.id, content: input }),
+    });
+    // Append locally (optimistic)
+    setMessages((prev) => [...prev, { sender_id: 'me', content: input }]);
+    setInput("");
+  };
+
+  return (
+    <div className="chat-box glass" style={{ padding: '20px', borderRadius: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <h3>Chat with {user.name}</h3>
+        <button className="secondary-btn" onClick={onClose}>Close</button>
+      </div>
+      <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
+        {messages.length > 0 ? (
+          messages.map((msg, idx) => (
+            <p key={idx} style={{ textAlign: msg.sender_id === 'me' ? 'right' : 'left' }}>
+              {msg.content}
+            </p>
+          ))
+        ) : (
+          <p className="empty-state">No messages yet.</p>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Type a message..."
+          style={{ flex: 1, padding: '8px' }}
+        />
+        <button className="primary-btn" onClick={handleSend}>Send</button>
       </div>
     </div>
   );
