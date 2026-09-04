@@ -101,11 +101,11 @@ function Dashboard() {
       case "My Teams":
         return <MyTeams />;
       case "Messages":
-        return <Messages />;
+         return <Messages user={user} />;
+      case "Notifications":
+         return <Notifications user={user} />;
       case "Projects":
         return <Projects />;
-      case "Notifications":
-        return <Notifications />;
       case "Settings":
         return <Settings />;
       case "Edit Profile":
@@ -757,7 +757,7 @@ function MyTeams() {
    MESSAGES
 ========================= */
 
-function Messages() {
+function Messages({ user }) {
   const [connections, setConnections] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
 
@@ -770,7 +770,7 @@ function Messages() {
   return (
     <PageBox title="Messages" description="Communicate with teammates and project collaborators.">
       {activeChat ? (
-        <ChatBox user={activeChat} onClose={() => setActiveChat(null)} />
+        <ChatBox user={activeChat} currentUser={user} onClose={() => setActiveChat(null)} />
       ) : (
         <div className="message-list">
           {connections.length > 0 ? (
@@ -900,9 +900,9 @@ function Projects() {
    NOTIFICATIONS
 ========================= */
 
-function Notifications() {
+function Notifications({ user }) {
   const [requests, setRequests] = useState([]);
-  const [showChat, setShowChat] = useState(null); // stores user object for chat
+  const [showChat, setShowChat] = useState(null);
 
   useEffect(() => {
     fetchWithAuth("/requests/incoming")
@@ -913,7 +913,6 @@ function Notifications() {
   const handleAccept = async (requestId) => {
     await fetchWithAuth(`/requests/${requestId}/accept`, { method: "PUT" });
     alert("Request accepted");
-    // Remove from list
     setRequests((prev) => prev.filter((r) => r.id !== requestId));
   };
 
@@ -923,14 +922,16 @@ function Notifications() {
     setRequests((prev) => prev.filter((r) => r.id !== requestId));
   };
 
-  const handleMessage = (user) => {
-    setShowChat(user);
+  const handleMessage = (sender) => {
+    // sender is the object we have in the request (sender_id, sender_name, sender_email)
+    // We need to create a connection-like object for ChatBox
+    setShowChat({ id: sender.sender_id, name: sender.sender_name, email: sender.sender_email });
   };
 
   return (
     <PageBox title="Notifications" description="Stay updated on team requests and project activity.">
       {showChat ? (
-        <ChatBox user={showChat} onClose={() => setShowChat(null)} />
+        <ChatBox user={showChat} currentUser={user} onClose={() => setShowChat(null)} />
       ) : (
         <div className="notification-list">
           {requests.length > 0 ? (
@@ -940,7 +941,16 @@ function Notifications() {
                   <h3>{request.sender_name} wants to connect</h3>
                   <p>{request.sender_email}</p>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <button className="primary-btn" onClick={() => handleAccept(request.id)}>Accept</button>
+                    <button
+                      className="primary-btn"
+                      onClick={() => {
+                        handleAccept(request.id);
+                        // After accept, you can open chat immediately
+                        handleMessage(request);
+                      }}
+                    >
+                      Accept
+                    </button>
                     <button className="secondary-btn" onClick={() => handleDecline(request.id)}>Decline</button>
                   </div>
                 </div>
@@ -1564,25 +1574,53 @@ function AuthScreen({ onLogin }) {
   );
 }
 
-function ChatBox({ user, onClose }) {
+function ChatBox({ user, currentUser, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const messagesEndRef = useRef(null);
 
+  const currentUserId = currentUser?.id;
+
+  // Fetch messages on mount and poll every 2 seconds
   useEffect(() => {
-    fetchWithAuth(`/messages/${user.id}`)
-      .then((data) => setMessages(data || []))
-      .catch(console.error);
+    const fetchMessages = async () => {
+      try {
+        const data = await fetchWithAuth(`/messages/${user.id}`);
+        setMessages(data || []);
+        scrollToBottom();
+      } catch (err) {
+        console.error("Failed to fetch messages:", err);
+      }
+    };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 2000);
+    return () => clearInterval(interval);
   }, [user.id]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    await fetchWithAuth("/messages", {
-      method: "POST",
-      body: JSON.stringify({ receiver_id: user.id, content: input }),
-    });
-    // Append locally (optimistic)
-    setMessages((prev) => [...prev, { sender_id: 'me', content: input }]);
-    setInput("");
+    try {
+      await fetchWithAuth("/messages", {
+        method: "POST",
+        body: JSON.stringify({ receiver_id: user.id, content: input }),
+      });
+      // Optimistically add the message (or wait for fetch to update)
+      setMessages((prev) => [...prev, { sender_id: currentUserId, content: input }]);
+      setInput("");
+      scrollToBottom();
+    } catch (error) {
+      alert("Failed to send message.");
+    }
   };
 
   return (
@@ -1591,16 +1629,42 @@ function ChatBox({ user, onClose }) {
         <h3>Chat with {user.name}</h3>
         <button className="secondary-btn" onClick={onClose}>Close</button>
       </div>
-      <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
+      <div
+        style={{
+          maxHeight: '300px',
+          overflowY: 'auto',
+          border: '1px solid #ccc',
+          padding: '10px',
+          marginBottom: '10px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}
+      >
         {messages.length > 0 ? (
-          messages.map((msg, idx) => (
-            <p key={idx} style={{ textAlign: msg.sender_id === 'me' ? 'right' : 'left' }}>
-              {msg.content}
-            </p>
-          ))
+          messages.map((msg, idx) => {
+            const isMine = msg.sender_id === currentUserId;
+            return (
+              <div
+                key={idx}
+                style={{
+                  alignSelf: isMine ? 'flex-end' : 'flex-start',
+                  backgroundColor: isMine ? '#007bff' : '#e9ecef',
+                  color: isMine ? 'white' : 'black',
+                  padding: '8px 12px',
+                  borderRadius: '12px',
+                  maxWidth: '70%',
+                  wordWrap: 'break-word'
+                }}
+              >
+                {msg.content}
+              </div>
+            );
+          })
         ) : (
           <p className="empty-state">No messages yet.</p>
         )}
+        <div ref={messagesEndRef} />
       </div>
       <div style={{ display: 'flex', gap: '10px' }}>
         <input
