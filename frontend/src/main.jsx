@@ -18,6 +18,52 @@ function Dashboard() {
   const [activePage, setActivePage] = useState("Dashboard");
   const [user, setUser] = useState(null);
 
+  // Map page names to URL paths
+  const pageToPath = {
+    Dashboard: "/",
+    "Find Teammates": "/find-teammates",
+    "My Teams": "/my-teams",
+    Messages: "/messages",
+    Projects: "/projects",
+    Notifications: "/notifications",
+    Settings: "/settings",
+    "Edit Profile": "/edit-profile",
+  };
+
+  // Map URL paths back to page names
+  const pathToPage = {
+    "/": "Dashboard",
+    "/find-teammates": "Find Teammates",
+    "/my-teams": "My Teams",
+    "/messages": "Messages",
+    "/projects": "Projects",
+    "/notifications": "Notifications",
+    "/settings": "Settings",
+    "/edit-profile": "Edit Profile",
+  };
+
+  // On initial load, read the URL and set the current page
+  useEffect(() => {
+    const path = window.location.pathname;
+    setActivePage(pathToPage[path] || "Dashboard");
+  }, []);
+
+  // When activePage changes, update the URL (without reloading)
+  useEffect(() => {
+    const path = pageToPath[activePage] || "/";
+    window.history.pushState({}, "", path);
+  }, [activePage]);
+
+  // Listen to browser back/forward and update activePage accordingly
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      setActivePage(pathToPage[path] || "Dashboard");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   useEffect(() => {
     fetchWithAuth("/auth/me")
       .then((data) => setUser(data))
