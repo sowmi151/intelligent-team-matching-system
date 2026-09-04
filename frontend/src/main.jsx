@@ -85,6 +85,10 @@ function Dashboard() {
     { name: "Notifications", icon: "◌" },
   ];
 
+  const handleUserUpdate = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
   const renderPage = () => {
     switch (activePage) {
       case "Find Teammates":
@@ -100,8 +104,8 @@ function Dashboard() {
       case "Settings":
         return <Settings />;
       case "Edit Profile":
-        // ✅ Pass setActivePage to EditProfile so it can navigate back
-        return <EditProfile user={user} setActivePage={setActivePage} />;
+        // ✅ Pass onUserUpdate to EditProfile
+        return <EditProfile user={user} setActivePage={setActivePage} onUserUpdate={handleUserUpdate} />;
       default:
         return <Home setActivePage={setActivePage} user={user} />;
     }
@@ -1010,7 +1014,8 @@ function Settings() {
    EDIT PROFILE (MODIFIED)
 ========================= */
 
-function EditProfile({ user, setActivePage, onUserUpdate }) {  const [profile, setProfile] = useState({
+function EditProfile({ user, setActivePage, onUserUpdate }) {
+  const [profile, setProfile] = useState({
     name: "",
     college: "",
     section: "",
@@ -1047,7 +1052,7 @@ function EditProfile({ user, setActivePage, onUserUpdate }) {  const [profile, s
     }));
   };
 
-   const handleSave = async (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
 
     try {
@@ -1067,6 +1072,7 @@ function EditProfile({ user, setActivePage, onUserUpdate }) {  const [profile, s
       console.error(error);
     }
   };
+
   const inputStyle = {
     padding: "12px",
     borderRadius: "8px",
