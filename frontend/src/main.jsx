@@ -100,7 +100,8 @@ function Dashboard() {
       case "Settings":
         return <Settings />;
       case "Edit Profile":
-        return <EditProfile user={user} />;
+        // ✅ Pass setActivePage to EditProfile so it can navigate back
+        return <EditProfile user={user} setActivePage={setActivePage} />;
       default:
         return <Home setActivePage={setActivePage} user={user} />;
     }
@@ -1006,10 +1007,10 @@ function Settings() {
 }
 
 /* =========================
-   EDIT PROFILE
+   EDIT PROFILE (MODIFIED)
 ========================= */
 
-function EditProfile({ user }) {
+function EditProfile({ user, setActivePage }) {
   const [profile, setProfile] = useState({
     name: "",
     college: "",
@@ -1057,7 +1058,8 @@ function EditProfile({ user }) {
       });
 
       alert("Profile updated successfully.");
-      window.location.reload();
+      // ✅ Instead of reloading the page, navigate back to Dashboard
+      setActivePage("Dashboard");
     } catch (error) {
       alert(`Failed to update profile: ${error.message}`);
       console.error(error);
