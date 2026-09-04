@@ -237,6 +237,7 @@ def decline_request(request_id: int, u: User = Depends(current_user), db: Sessio
     r.status = "Declined"
     db.commit()
     return {"message": "Request declined"}
+
 @app.get("/api/connections")
 def get_connections(u: User = Depends(current_user), db: Session = Depends(get_db)):
     requests = db.query(TeamRequest).filter(
@@ -253,6 +254,20 @@ def get_connections(u: User = Depends(current_user), db: Session = Depends(get_d
                 result.append({"id": other.id, "name": other.name, "email": other.email})
                 seen.add(other_id)
     return result
+
+@app.delete("/api/connections/{other_user_id}")
+def disconnect(other_user_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    request = db.query(TeamRequest).filter(
+        TeamRequest.status == "Accepted",
+        or_(TeamRequest.sender_id == u.id, TeamRequest.receiver_id == u.id),
+        or_(TeamRequest.sender_id == other_user_id, TeamRequest.receiver_id == other_user_id)
+    ).first()
+    if request:
+        request.status = "Declined"
+        db.commit()
+        return {"message": "Disconnected successfully"}
+    raise HTTPException(404, "Connection not found")
+
 @app.get("/api/messages/{other_user_id}")
 def get_messages_with_user(other_user_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
     messages = db.query(Message).filter(

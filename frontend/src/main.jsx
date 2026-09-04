@@ -101,10 +101,7 @@ const renderPage = () => {
     case "Find Teammates":
       return <FindTeammates />;
     case "My Connections":
-      return <ConnectionsList onMessageClick={(conn) => {
-        setSelectedConnection(conn);
-        setActivePage("Messages");
-      }} />;
+      return <ConnectionsList onViewProfile={handleViewProfile} />;
     case "Messages":
       return <Messages user={user} initialChatUser={selectedConnection} />;
     case "My Teams":
@@ -799,14 +796,29 @@ function Messages({ user, initialChatUser }) {
   );
 }
 
-function ConnectionsList({ onMessageClick }) {
+function ConnectionsList({ onViewProfile }) {
   const [connections, setConnections] = useState([]);
 
   useEffect(() => {
-    fetchWithAuth("/connections")
-      .then((data) => setConnections(data || []))
-      .catch(console.error);
+    fetchConnections();
   }, []);
+
+  const fetchConnections = async () => {
+    const data = await fetchWithAuth("/connections");
+    setConnections(data || []);
+  };
+
+  const handleDisconnect = async (connId) => {
+    if (!confirm("Are you sure you want to disconnect?")) return;
+    try {
+      await fetchWithAuth(`/connections/${connId}`, { method: "DELETE" });
+      setConnections((prev) => prev.filter((conn) => conn.id !== connId));
+      alert("Disconnected successfully.");
+    } catch (error) {
+      alert("Failed to disconnect.");
+      console.error(error);
+    }
+  };
 
   return (
     <PageBox title="My Connections" description="Your accepted connections.">
@@ -819,9 +831,14 @@ function ConnectionsList({ onMessageClick }) {
                 <h3>{conn.name}</h3>
                 <p>{conn.email}</p>
               </div>
-              <button className="primary-btn" onClick={() => onMessageClick(conn)}>
-                Message
-              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button className="secondary-btn" onClick={() => onViewProfile(conn)}>
+                  View Profile
+                </button>
+                <button className="primary-btn" style={{ background: "red", borderColor: "red" }} onClick={() => handleDisconnect(conn.id)}>
+                  Disconnect
+                </button>
+              </div>
             </div>
           ))
         ) : (
