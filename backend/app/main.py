@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func  # ✅ Added func
 from .database import Base, engine, get_db, SessionLocal
 from .models import *
 from .schemas import *
@@ -9,6 +9,7 @@ from .auth import *
 from .matching_service import match, sim
 
 Base.metadata.create_all(bind=engine)
+
 # Auto-seed demo user
 def seed_demo_user():
     db = SessionLocal()
@@ -60,20 +61,51 @@ def profile_dict(p):
 def register(x: Register, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == x.email).first(): 
         raise HTTPException(400, "Email already registered")
-    u = User(name=x.name, email=x.email, password_hash=hash_password(x.password), college=x.college, department=x.department, year=x.year, section=x.section)
+    
+    # Auto-generate name from email if no name provided
+    name = x.name or x.first_name or ""
+    if not name:
+        # Take part before @, replace dots with spaces, capitalize words
+        email_prefix = x.email.split("@")[0]
+        name = email_prefix.replace(".", " ").replace("_", " ").title()
+    
+    u = User(
+        name=name,
+        email=x.email,
+        password_hash=hash_password(x.password),
+        college=x.college,
+        department=x.department,
+        year=x.year,
+        section=x.section
+    )
     db.add(u)
     db.commit()
     db.refresh(u)
     db.add(StudentProfile(user_id=u.id))
     db.commit()
-    return {"access_token": token(u), "user": user_dict(u)}
+    
+    return {
+        "access_token": token(u),
+        "user": user_dict(u),
+        "is_new": True   # first time
+    }
 
 @app.post("/api/auth/login")
 def login(x: Login, db: Session = Depends(get_db)):
     u = db.query(User).filter(User.email == x.email).first()
     if not u or not verify_password(x.password, u.password_hash): 
         raise HTTPException(401, "Invalid email or password")
-    return {"access_token": token(u), "user": user_dict(u)}
+    
+    # Determine if this is the first login
+    is_new = u.last_login_at is None
+    u.last_login_at = func.now()  # update last login time
+    db.commit()
+    
+    return {
+        "access_token": token(u),
+        "user": user_dict(u),
+        "is_new": is_new
+    }
 
 @app.get("/api/auth/me")
 def me(u=Depends(current_user)): 

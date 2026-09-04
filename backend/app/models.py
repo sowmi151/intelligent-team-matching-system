@@ -17,6 +17,7 @@ class User(Base):
     notifications_enabled = Column(Boolean, default=True)
     ai_recommendations_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+    last_login_at = Column(DateTime, nullable=True)
 
 class StudentProfile(Base):
     __tablename__ = "profiles"
@@ -34,6 +35,8 @@ class StudentProfile(Base):
     linkedin = Column(String, default="")
     github = Column(String, default="")
     portfolio = Column(String, default="")
+    last_login_at = Column(DateTime, nullable=True)
+
 
 class Project(Base):
     __tablename__ = "projects"
